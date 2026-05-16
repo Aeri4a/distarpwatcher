@@ -25,9 +25,11 @@ pcap_t* init_capture(const char* device) {
 
     if (pcap_setfilter(handle, &fp) == -1) {
         fprintf(stderr, "Couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
+        pcap_freecode(&fp);
         return nullptr;
     }
 
+    pcap_freecode(&fp);
     return handle;
 }
 

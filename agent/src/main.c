@@ -17,6 +17,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    set_pcap_handle(handle);
     start_capture_loop(handle);
 
     printf("Cleaning up...\n");
