@@ -1,3 +1,4 @@
+# Add Go bin directory to PATH so protoc can find protoc-gen-go and protoc-gen-go-grpc
 export PATH := $(shell go env GOPATH)/bin:$(PATH)
 
 .PHONY: all proto agent server clean
@@ -10,10 +11,11 @@ proto:
 	protoc --proto_path=common --go_out=server/pb --go_opt=paths=source_relative \
 	       --go-grpc_out=server/pb --go-grpc_opt=paths=source_relative \
 	       common/collector.proto
-	@echo "Generating Protobuf for C (Agent)..."
+	@echo "Generating Protobuf for C++ (Agent wrapper)..."
 	mkdir -p agent/src/pb
-	protoc-c --proto_path=common --c_out=agent/src/pb \
-	         common/collector.proto
+	protoc --proto_path=common --cpp_out=agent/src/pb \
+	       --grpc_out=agent/src/pb --plugin=protoc-gen-grpc=/usr/bin/grpc_cpp_plugin \
+	       common/collector.proto
 
 agent: proto
 	$(MAKE) -C agent
