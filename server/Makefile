@@ -1,4 +1,4 @@
-.PHONY: all clean
+.PHONY: all clean run
 
 all: build/server
 
@@ -8,3 +8,6 @@ build/server:
 
 clean:
 	rm -rf build
+
+run: all
+	./build/server
