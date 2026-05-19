@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package distarpwatcher;
+
+option go_package = "./pb";
+
+message ARPEvent {
+    string agent_id = 1;
+    uint64 timestamp = 2;
+
+    // ARP
+    uint32 opcode = 3;
+    bytes target_ip = 4;
+    bytes target_mac = 5;
+    bytes sender_id = 6;
+    bytes sender_mac = 7;
+}
+
+message ARPEventResponse {
+    uint32 events_received = 1;
+    bool success = 2;
+}
+
+service ARPCollector {
+    rpc ARPStream(stream ARPEvent) returns (ARPEventResponse);
+}
