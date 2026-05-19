@@ -1,6 +1,7 @@
 #include "capture.h"
 #include "signals.h"
 #include "grpc_client.h"
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
@@ -37,7 +38,6 @@ pcap_t* init_capture(const char* device) {
 void start_capture_loop(pcap_t *handle) {
     struct pcap_pkthdr *header;
     const u_char *packet;
-    const struct custom_arp_header *arp_header;
     const struct ether_arp *arp;
     int res;
     int link_type = pcap_datalink(handle);
@@ -62,20 +62,13 @@ void start_capture_loop(pcap_t *handle) {
         }
         if (res == -2) break; /* pcap_breakloop */
 
-        printf("Captured ARP packet: length %d\n", header->len);
-        
         if (header->caplen < header_offset + sizeof(struct ether_arp)) {
             continue; /* Packet too short */
         }
 
-        arp_header = (struct custom_arp_header*)(packet + header_offset);
         arp = (struct ether_arp*)(packet + header_offset);
-        // printf("  Target MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
-        //    arp_header->target_mac[0], arp_header->target_mac[1], arp_header->target_mac[2],
-        //    arp_header->target_mac[3], arp_header->target_mac[4], arp_header->target_mac[5]);
-        // printf("  Target IP:  %d.%d.%d.%d\n",
-        //        arp_header->target_ip[0], arp_header->target_ip[1], arp_header->target_ip[2], arp_header->target_ip[3]);
-        // printf("==========================================\n\n");
+        
+        printf("Captured ARP packet: length %d\n", header->len);
         printf("  Target MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            arp->arp_tha[0], arp->arp_tha[1], arp->arp_tha[2],
            arp->arp_tha[3], arp->arp_tha[4], arp->arp_tha[5]);
@@ -84,7 +77,7 @@ void start_capture_loop(pcap_t *handle) {
         printf("==========================================\n\n");
 
         send_arp_event(
-            "agent-1",
+            global_config.agent_id,
             ntohs(arp->ea_hdr.ar_op),
             arp->arp_tpa,
             arp->arp_tha,

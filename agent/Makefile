@@ -4,7 +4,7 @@ CFLAGS = -Wall -Wextra -O2 -Isrc -Isrc/pb
 CXXFLAGS = -Wall -Wextra -O2 -Isrc -Isrc/pb -std=c++17
 LDFLAGS = -lpcap `pkg-config --libs grpc++ protobuf` -lpthread
 
-SRC_C = src/main.c src/signals.c src/capture.c
+SRC_C = src/main.c src/signals.c src/capture.c src/config.c
 SRC_CXX = src/grpc_client.cpp $(wildcard src/pb/*.cc)
 
 OBJ_C = $(patsubst src/%.c, build/%.o, $(SRC_C))
@@ -36,6 +36,6 @@ clean:
 	rm -rf build
 
 run: all
-	sudo ./$(TARGET) any
+	sudo ./$(TARGET)
 
 .PHONY: all clean run

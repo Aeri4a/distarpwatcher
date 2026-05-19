@@ -1,21 +1,33 @@
 #include "signals.h"
 #include "capture.h"
 #include "grpc_client.h"
+#include "config.h"
 #include <stdio.h>
 
 int main(int argc, char *argv[]) {
-    const char *device = "any";
     if (argc > 1) {
-        device = argv[1];
+        if (load_config(argv[1]) != 0) {
+            fprintf(stderr, "Error: Could not load specified config file '%s'\n", argv[1]);
+            return 1;
+        }
+    } else {
+        if (load_config("/etc/distarpwatcher/agent.conf") != 0) {
+            if (load_config("agent.conf") != 0) { // fallback to local
+                printf("Warning: No config file found. Using default settings.\n");
+            }
+        }
     }
 
-    printf("Initializing ARP capture on interface: %s\n", device);
-    
-    init_grpc_client("localhost:50051");
+    printf("Starting ARP Watcher Agent\n");
+    printf("  Agent ID: %s\n", global_config.agent_id);
+    printf("  Server Address: %s\n", global_config.server_address);
+    printf("  Capture Interface: %s\n", global_config.interface);
+
+    init_grpc_client(global_config.server_address);
 
     setup_signal_handlers();
 
-    pcap_t *handle = init_capture(device);
+    pcap_t *handle = init_capture(global_config.interface);
     if (!handle) {
         destroy_grpc_client();
         return 1;
