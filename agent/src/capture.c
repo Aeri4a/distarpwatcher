@@ -1,5 +1,6 @@
 #include "capture.h"
 #include "signals.h"
+#include "grpc_client.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
@@ -81,6 +82,15 @@ void start_capture_loop(pcap_t *handle) {
         printf("  Target IP:  %d.%d.%d.%d\n",
                arp->arp_tpa[0], arp->arp_tpa[1], arp->arp_tpa[2], arp->arp_tpa[3]);
         printf("==========================================\n\n");
+
+        send_arp_event(
+            "agent-1",
+            ntohs(arp->ea_hdr.ar_op),
+            arp->arp_tpa,
+            arp->arp_tha,
+            arp->arp_spa,
+            arp->arp_sha
+        );
     }
     printf("Capture loop stopped.\n");
 }
