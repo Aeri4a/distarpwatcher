@@ -1,7 +1,7 @@
 # Add Go bin directory to PATH so protoc can find protoc-gen-go and protoc-gen-go-grpc
 export PATH := $(shell go env GOPATH)/bin:$(PATH)
 
-.PHONY: all proto agent server clean
+.PHONY: all proto agent server clean cert-gen
 
 all: proto agent server
 
@@ -17,6 +17,11 @@ proto:
 	       --grpc_out=agent/src/pb --plugin=protoc-gen-grpc=/usr/bin/grpc_cpp_plugin \
 	       common/collector.proto
 
+cert-gen:
+	@echo "Generating mTLS Certificates..."
+	chmod +x common/cert_gen.sh
+	./common/cert_gen.sh
+
 agent: proto
 	$(MAKE) -C agent
 
@@ -26,5 +31,6 @@ server: proto
 clean:
 	rm -rf server/pb
 	rm -rf agent/src/pb
+	rm -rf common/certs
 	$(MAKE) -C agent clean
 	$(MAKE) -C server clean
