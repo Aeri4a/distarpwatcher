@@ -5,6 +5,9 @@ typedef struct {
     char agent_id[64];
     char server_address[128];
     char interface[64];
+    char ca_cert[256];
+    char client_cert[256];
+    char client_key[256];
 } app_config_t;
 
 extern app_config_t global_config;

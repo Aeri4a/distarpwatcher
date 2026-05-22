@@ -1,14 +1,18 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"os"
 
 	"server/pb"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 type server struct {
@@ -45,6 +49,30 @@ func (s *server) ARPStream(stream pb.ARPCollector_ARPStreamServer) error {
 	}
 }
 
+func retreiveCredentrials() credentials.TransportCredentials {
+	// adjust path later
+	serverCert, err := tls.LoadX509KeyPair("../certs/server.pem", "../certs/server.key")
+	if err != nil {
+		log.Fatalf("Failed to load server certificate: %v", err)
+	}
+
+	caCert, err := os.ReadFile("../certs/ca.pem")
+	if err != nil {
+		log.Fatalf("Failed to load ca certificate: %v", err)
+	}
+
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	creds := credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    caCertPool,
+	})
+
+	return creds
+}
+
 func main() {
 	port := ":50051"
 	lis, err := net.Listen("tcp", port)
@@ -52,7 +80,9 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	s := grpc.NewServer()
+	creds := retreiveCredentrials()
+
+	s := grpc.NewServer(grpc.Creds(creds))
 	pb.RegisterARPCollectorServer(s, &server{})
 
 	log.Printf("Server listening at %v", lis.Addr())

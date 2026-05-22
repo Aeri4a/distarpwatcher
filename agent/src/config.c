@@ -7,7 +7,10 @@
 app_config_t global_config = {
     .agent_id = "agent-default",
     .server_address = "localhost:50051",
-    .interface = "any"
+    .interface = "any",
+    .ca_cert = "certs/ca.pem",
+    .client_cert = "certs/client.pem",
+    .client_key = "certs/client.key"
 };
 
 static void trim(char *str) {
@@ -51,6 +54,15 @@ int load_config(const char *filename) {
             } else if (strcmp(key, "interface") == 0) {
                 strncpy(global_config.interface, value, sizeof(global_config.interface) - 1);
                 global_config.interface[sizeof(global_config.interface) - 1] = '\0';
+            } else if (strcmp(key, "ca_cert") == 0) {
+                strncpy(global_config.ca_cert, value, sizeof(global_config.ca_cert) - 1);
+                global_config.ca_cert[sizeof(global_config.ca_cert) - 1] = '\0';
+            } else if (strcmp(key, "client_cert") == 0) {
+                strncpy(global_config.client_cert, value, sizeof(global_config.client_cert) - 1);
+                global_config.client_cert[sizeof(global_config.client_cert) - 1] = '\0';
+            } else if (strcmp(key, "client_key") == 0) {
+                strncpy(global_config.client_key, value, sizeof(global_config.client_key) - 1);
+                global_config.client_key[sizeof(global_config.client_key) - 1] = '\0';
             }
         }
     }

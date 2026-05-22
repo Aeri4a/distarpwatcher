@@ -1,8 +1,11 @@
 #include "grpc_client.h"
+#include "config.h"
 #include <iostream>
 #include <memory>
 #include <string>
 #include <chrono>
+#include <fstream>
+#include <sstream>
 
 #include <grpcpp/grpcpp.h>
 #include "pb/collector.grpc.pb.h"
@@ -14,6 +17,18 @@ using grpc::Status;
 using distarpwatcher::ARPCollector;
 using distarpwatcher::ARPEvent;
 using distarpwatcher::ARPEventResponse;
+
+static std::string get_file_contents(const char *filename) {
+    std::ifstream in(filename, std::ios::in | std::ios::binary);
+    if (in) {
+        std::ostringstream contents;
+        contents << in.rdbuf();
+        in.close();
+        return contents.str();
+    }
+    std::cerr << "Warning: Could not read certificate file: " << filename << std::endl;
+    return "";
+}
 
 class ARPClient {
 public:
@@ -58,9 +73,18 @@ extern "C" {
 void init_grpc_client(const char* target) {
     if (!g_client) {
         std::string target_str(target);
+        
+        grpc::SslCredentialsOptions ssl_opts;
+        ssl_opts.pem_root_certs = get_file_contents(global_config.ca_cert);
+        ssl_opts.pem_private_key = get_file_contents(global_config.client_key);
+        ssl_opts.pem_cert_chain = get_file_contents(global_config.client_cert);
+
+        auto channel_creds = grpc::SslCredentials(ssl_opts);
+
         g_client = std::make_unique<ARPClient>(grpc::CreateChannel(
-            target_str, grpc::InsecureChannelCredentials()));
-        std::cout << "Initialized gRPC client connected to " << target_str << std::endl;
+            target_str, channel_creds));
+        
+        std::cout << "Initialized gRPC client (mTLS) connected to " << target_str << std::endl;
     }
 }
 
