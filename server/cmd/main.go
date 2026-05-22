@@ -49,7 +49,7 @@ func (s *server) ARPStream(stream pb.ARPCollector_ARPStreamServer) error {
 	}
 }
 
-func retreiveCredentrials() credentials.TransportCredentials {
+func getCredentials() credentials.TransportCredentials {
 	// adjust path later
 	serverCert, err := tls.LoadX509KeyPair("../certs/server.pem", "../certs/server.key")
 	if err != nil {
@@ -80,7 +80,7 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	creds := retreiveCredentrials()
+	creds := getCredentials()
 
 	s := grpc.NewServer(grpc.Creds(creds))
 	pb.RegisterARPCollectorServer(s, &server{})
