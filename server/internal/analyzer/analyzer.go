@@ -9,7 +9,7 @@ import (
 
 type AnalysisReport struct {
 	Event    *pb.ARPEvent
-	Flags    uint32
+	Flags    uint32 // skipped for now
 	Findings []string
 }
 
@@ -53,17 +53,29 @@ func (a *Analyzer) Start(ctx context.Context) error {
 				return nil
 			}
 			log.Printf("Analyzer received event %v", event)
-			//if err := a.AnalyzeCycle(ctx); err != nil {
-			//	log.Printf("Analyzer error: %v", err)
-			//}
+			if err := a.AnalyzeCycle(ctx, event); err != nil {
+				log.Printf("Analyzer error: %v", err)
+			}
 		}
 	}
 }
 
-func (a *Analyzer) AnalyzeCycle(ctx context.Context) error {
-	log.Println("Running analysis cycle...")
-	// report
-	// step process
-	// handle results
+func (a *Analyzer) AnalyzeCycle(ctx context.Context, event *pb.ARPEvent) error {
+	report := &AnalysisReport{
+		Event:    event,
+		Flags:    0,
+		Findings: []string{},
+	}
+
+	for _, step := range a.steps {
+		if err := step.Process(ctx, report); err != nil {
+			return err
+		}
+	}
+
+	if len(report.Findings) != 0 {
+		log.Printf("Found findings: %v", report.Findings)
+	}
+
 	return nil
 }
