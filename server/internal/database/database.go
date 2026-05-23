@@ -2,17 +2,41 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	"server/pb"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type BindingStatus string
+
+const (
+	TRUSTED  BindingStatus = "TRUSTED"
+	CONFLICT BindingStatus = "CONFLICT"
+)
+
+type IPMACBinding struct {
+	IPAddress  string
+	MACAddress string
+	LastSeen   time.Time
+	Status     BindingStatus
+}
+
 type Database interface {
 	SaveEvent(ctx context.Context, event *pb.ARPEvent) error
+	
+	// State Management for Analyzer
+	GetIPMACBinding(ctx context.Context, ip string) (*IPMACBinding, error)
+	CreateIPMACBinding(ctx context.Context, ip string, mac string, timestamp uint64) error
+	UpdateLastSeen(ctx context.Context, ip string, timestamp uint64) error
+	UpdateStatus(ctx context.Context, ip string, status BindingStatus) error
+	
 	Close()
 }
 
@@ -81,6 +105,84 @@ func (db *PostgresDatabase) SaveEvent(ctx context.Context, event *pb.ARPEvent) e
 
 	if err != nil {
 		return fmt.Errorf("failed to insert arp event: %w", err)
+	}
+
+	return nil
+}
+
+func (db *PostgresDatabase) GetIPMACBinding(ctx context.Context, ip string) (*IPMACBinding, error) {
+	query := `
+		SELECT ip_address, mac_address, last_seen, status 
+		FROM ip_mac_bindings 
+		WHERE ip_address = $1
+	`
+	
+	var b IPMACBinding
+	err := db.pool.QueryRow(ctx, query, ip).Scan(
+		&b.IPAddress,
+		&b.MACAddress,
+		&b.LastSeen,
+		&b.Status,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Not found is not an error
+		}
+		return nil, fmt.Errorf("failed to query ip_mac_bindings: %w", err)
+	}
+
+	return &b, nil
+}
+
+func (db *PostgresDatabase) CreateIPMACBinding(ctx context.Context, ip string, mac string, timestamp uint64) error {
+	query := `
+		INSERT INTO ip_mac_bindings (
+			ip_address, mac_address, last_seen, status
+		) VALUES (
+			$1, $2, to_timestamp($3 / 1000.0), $4
+		)
+	`
+
+	_, err := db.pool.Exec(ctx, query,
+		ip,
+		mac,
+		timestamp,
+		TRUSTED,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to create ip_mac_binding: %w", err)
+	}
+
+	return nil
+}
+
+func (db *PostgresDatabase) UpdateLastSeen(ctx context.Context, ip string, timestamp uint64) error {
+	query := `
+		UPDATE ip_mac_bindings 
+		SET last_seen = to_timestamp($1 / 1000.0) 
+		WHERE ip_address = $2
+	`
+
+	_, err := db.pool.Exec(ctx, query, timestamp, ip)
+	if err != nil {
+		return fmt.Errorf("failed to update last_seen: %w", err)
+	}
+
+	return nil
+}
+
+func (db *PostgresDatabase) UpdateStatus(ctx context.Context, ip string, status BindingStatus) error {
+	query := `
+		UPDATE ip_mac_bindings 
+		SET status = $1 
+		WHERE ip_address = $2
+	`
+
+	_, err := db.pool.Exec(ctx, query, status, ip)
+	if err != nil {
+		return fmt.Errorf("failed to update binding status: %w", err)
 	}
 
 	return nil
