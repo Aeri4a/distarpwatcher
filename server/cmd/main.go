@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -8,7 +9,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
+	"server/internal/database"
 	"server/pb"
 
 	"google.golang.org/grpc"
@@ -17,6 +20,7 @@ import (
 
 type server struct {
 	pb.UnimplementedARPCollectorServer
+	db database.Database
 }
 
 func (s *server) ARPStream(stream pb.ARPCollector_ARPStreamServer) error {
@@ -38,6 +42,12 @@ func (s *server) ARPStream(stream pb.ARPCollector_ARPStreamServer) error {
 		}
 
 		eventsReceived++
+
+		err = s.db.SaveEvent(context.Background(), event)
+		if err != nil {
+			log.Printf("Error saving event to database: %v", err)
+		}
+
 		fmt.Printf("--- New ARP Event (Agent: %s) ---\n", event.AgentId)
 		fmt.Printf("  Timestamp: %d\n", event.Timestamp)
 		fmt.Printf("  Opcode:    %d\n", event.Opcode)
@@ -74,6 +84,17 @@ func getCredentials() credentials.TransportCredentials {
 }
 
 func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	dsn := "postgres://postgres:postgres@localhost:5432/distarpwatcher?sslmode=disable"
+
+	db, err := database.InitDatabase(ctx, dsn)
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer db.Close()
+
 	port := ":50051"
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
@@ -83,7 +104,7 @@ func main() {
 	creds := getCredentials()
 
 	s := grpc.NewServer(grpc.Creds(creds))
-	pb.RegisterARPCollectorServer(s, &server{})
+	pb.RegisterARPCollectorServer(s, &server{db: db})
 
 	log.Printf("Server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
