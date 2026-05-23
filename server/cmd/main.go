@@ -11,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	"server/internal/config"
 	"server/internal/database"
 	"server/pb"
 
@@ -59,14 +60,13 @@ func (s *server) ARPStream(stream pb.ARPCollector_ARPStreamServer) error {
 	}
 }
 
-func getCredentials() credentials.TransportCredentials {
-	// adjust path later
-	serverCert, err := tls.LoadX509KeyPair("../certs/server.pem", "../certs/server.key")
+func getCredentials(cfg *config.Config) credentials.TransportCredentials {
+	serverCert, err := tls.LoadX509KeyPair(cfg.Server.ServerPem, cfg.Server.ServerKey)
 	if err != nil {
 		log.Fatalf("Failed to load server certificate: %v", err)
 	}
 
-	caCert, err := os.ReadFile("../certs/ca.pem")
+	caCert, err := os.ReadFile(cfg.Server.CaCert)
 	if err != nil {
 		log.Fatalf("Failed to load ca certificate: %v", err)
 	}
@@ -84,24 +84,26 @@ func getCredentials() credentials.TransportCredentials {
 }
 
 func main() {
+	cfg, err := config.LoadConfig("config.yaml")
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	dsn := "postgres://postgres:postgres@localhost:5432/distarpwatcher?sslmode=disable"
-
-	db, err := database.InitDatabase(ctx, dsn)
+	db, err := database.InitDatabase(ctx, cfg.Database.DSN)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Close()
 
-	port := ":50051"
-	lis, err := net.Listen("tcp", port)
+	lis, err := net.Listen("tcp", cfg.Server.Port)
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	creds := getCredentials()
+	creds := getCredentials(cfg)
 
 	s := grpc.NewServer(grpc.Creds(creds))
 	pb.RegisterARPCollectorServer(s, &server{db: db})

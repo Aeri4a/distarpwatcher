@@ -1,0 +1,8 @@
+server:
+  port: ":50051" # should be in format ":12345"
+  ca_cert: "../certs/ca.pem"
+  server_pem: "../certs/server.pem"
+  server_key: "../certs/server.key"
+
+database:
+  dsn: "postgres://postgres:postgres@localhost:5432/distarpwatcher?sslmode=disable"
