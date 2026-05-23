@@ -113,7 +113,7 @@ func (db *PostgresDatabase) SaveEvent(ctx context.Context, event *pb.ARPEvent) e
 
 func (db *PostgresDatabase) GetIPMACBinding(ctx context.Context, ip string) (*IPMACBinding, error) {
 	query := `
-		SELECT ip_address, mac_address, last_seen, status 
+		SELECT ip_address::text, mac_address::text, last_seen, status 
 		FROM ip_mac_bindings 
 		WHERE ip_address = $1
 	`

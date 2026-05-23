@@ -52,7 +52,7 @@ func (a *Analyzer) Start(ctx context.Context) error {
 				log.Println("Analyzer channel closed.")
 				return nil
 			}
-			log.Printf("Analyzer received event %v", event)
+			//log.Printf("Analyzer received event %v", event)
 			if err := a.AnalyzeCycle(ctx, event); err != nil {
 				log.Printf("Analyzer error: %v", err)
 			}
