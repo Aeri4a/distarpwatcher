@@ -17,8 +17,8 @@ import (
 type BindingStatus string
 
 const (
-	TRUSTED  BindingStatus = "TRUSTED"
-	CONFLICT BindingStatus = "CONFLICT"
+	BIND_TRUSTED  BindingStatus = "TRUSTED"
+	BIND_CONFLICT BindingStatus = "CONFLICT"
 )
 
 type IPMACBinding struct {
@@ -30,13 +30,14 @@ type IPMACBinding struct {
 
 type Database interface {
 	SaveEvent(ctx context.Context, event *pb.ARPEvent) error
-	
+
 	// State Management for Analyzer
 	GetIPMACBinding(ctx context.Context, ip string) (*IPMACBinding, error)
 	CreateIPMACBinding(ctx context.Context, ip string, mac string, timestamp uint64) error
 	UpdateLastSeen(ctx context.Context, ip string, timestamp uint64) error
 	UpdateStatus(ctx context.Context, ip string, status BindingStatus) error
-	
+	UpdateMAC(ctx context.Context, ip string, mac string, timestamp uint64) error
+
 	Close()
 }
 
@@ -116,7 +117,7 @@ func (db *PostgresDatabase) GetIPMACBinding(ctx context.Context, ip string) (*IP
 		FROM ip_mac_bindings 
 		WHERE ip_address = $1
 	`
-	
+
 	var b IPMACBinding
 	err := db.pool.QueryRow(ctx, query, ip).Scan(
 		&b.IPAddress,
@@ -148,7 +149,7 @@ func (db *PostgresDatabase) CreateIPMACBinding(ctx context.Context, ip string, m
 		ip,
 		mac,
 		timestamp,
-		TRUSTED,
+		BIND_TRUSTED,
 	)
 
 	if err != nil {
@@ -183,6 +184,21 @@ func (db *PostgresDatabase) UpdateStatus(ctx context.Context, ip string, status 
 	_, err := db.pool.Exec(ctx, query, status, ip)
 	if err != nil {
 		return fmt.Errorf("failed to update binding status: %w", err)
+	}
+
+	return nil
+}
+
+func (db *PostgresDatabase) UpdateMAC(ctx context.Context, ip string, mac string, timestamp uint64) error {
+	query := `
+		UPDATE ip_mac_bindings 
+		SET mac_address = $1, last_seen = to_timestamp($2 / 1000.0), status = $3
+		WHERE ip_address = $4
+	`
+
+	_, err := db.pool.Exec(ctx, query, mac, timestamp, BIND_TRUSTED, ip)
+	if err != nil {
+		return fmt.Errorf("failed to update mac address: %w", err)
 	}
 
 	return nil
