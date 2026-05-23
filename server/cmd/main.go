@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"server/pb"
 	"syscall"
 	"time"
 
@@ -36,12 +37,14 @@ func main() {
 	defer db.Close()
 
 	g, gCtx := errgroup.WithContext(ctx)
+	eventChan := make(chan *pb.ARPEvent, 1024)
 
-	grpcSrv := collector.NewGRPCServer(cfg.Server, db)
+	grpcSrv := collector.NewGRPCServer(cfg.Server, db, eventChan)
+	analyzerSrv := analyzer.NewAnalyzer(db, eventChan)
 	apiSrv := api.NewAPIServer(cfg.API, db)
-	analyzerSrv := analyzer.NewAnalyzer(cfg.Analyzer, db)
 
 	g.Go(func() error {
+		defer close(eventChan)
 		return grpcSrv.Start(gCtx)
 	})
 	g.Go(func() error {

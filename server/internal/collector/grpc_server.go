@@ -20,14 +20,16 @@ import (
 
 type CollectorGRPCServer struct {
 	pb.UnimplementedARPCollectorServer
-	db     database.Database
-	config config.ServerConfig
+	config    config.ServerConfig
+	db        database.Database
+	eventChan chan *pb.ARPEvent
 }
 
-func NewGRPCServer(cfg config.ServerConfig, db database.Database) *CollectorGRPCServer {
+func NewGRPCServer(cfg config.ServerConfig, db database.Database, eventChan chan *pb.ARPEvent) *CollectorGRPCServer {
 	return &CollectorGRPCServer{
-		db:     db,
-		config: cfg,
+		db:        db,
+		config:    cfg,
+		eventChan: eventChan,
 	}
 }
 
@@ -92,6 +94,12 @@ func (s *CollectorGRPCServer) ARPStream(stream pb.ARPCollector_ARPStreamServer) 
 			event.AgentId,
 			net.IP(event.TargetIp).String(),
 			event.TargetMac)
+
+		select {
+		case s.eventChan <- event:
+		default:
+			log.Printf("Warning: Analyzer channel full, dropping event from %s", event.AgentId)
+		}
 	}
 }
 

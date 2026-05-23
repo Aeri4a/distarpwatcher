@@ -22,15 +22,10 @@ type APIConfig struct {
 	Port string `yaml:"port"`
 }
 
-type AnalyzerConfig struct {
-	Interval int `yaml:"interval"`
-}
-
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
 	API      APIConfig      `yaml:"api"`
-	Analyzer AnalyzerConfig `yaml:"analyzer"`
 }
 
 func LoadConfig(path string) (*Config, error) {

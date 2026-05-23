@@ -3,11 +3,8 @@ package analyzer
 import (
 	"context"
 	"log"
-	"server/pb"
-	"time"
-
-	"server/internal/config"
 	"server/internal/database"
+	"server/pb"
 )
 
 type AnalysisReport struct {
@@ -25,38 +22,40 @@ type AnalysisStep interface {
 }
 
 type Analyzer struct {
-	config config.AnalyzerConfig
-	db     database.Database
-	steps  []AnalysisStep
+	db        database.Database
+	eventChan chan *pb.ARPEvent
+	steps     []AnalysisStep
 }
 
-func NewAnalyzer(cfg config.AnalyzerConfig, db database.Database) *Analyzer {
+func NewAnalyzer(db database.Database, eventChan chan *pb.ARPEvent) *Analyzer {
 	steps := []AnalysisStep{
 		&MACChangeDetectorStep{db: db},
 	}
 
 	return &Analyzer{
-		config: cfg,
-		db:     db,
-		steps:  steps,
+		db:        db,
+		eventChan: eventChan,
+		steps:     steps,
 	}
 }
 
 func (a *Analyzer) Start(ctx context.Context) error {
-	log.Printf("Analyzer starting with interval: %d seconds", a.config.Interval)
-
-	ticker := time.NewTicker(time.Duration(a.config.Interval) * time.Second)
-	defer ticker.Stop()
+	log.Println("Analyzer started. Waiting for events...")
 
 	for {
 		select {
 		case <-ctx.Done():
 			log.Println("Shutting down Analyzer...")
 			return ctx.Err()
-		case <-ticker.C:
-			if err := a.AnalyzeCycle(ctx); err != nil {
-				log.Printf("Analyzer error: %v", err)
+		case event, ok := <-a.eventChan:
+			if !ok {
+				log.Println("Analyzer channel closed.")
+				return nil
 			}
+			log.Printf("Analyzer received event %v", event)
+			//if err := a.AnalyzeCycle(ctx); err != nil {
+			//	log.Printf("Analyzer error: %v", err)
+			//}
 		}
 	}
 }
@@ -65,6 +64,6 @@ func (a *Analyzer) AnalyzeCycle(ctx context.Context) error {
 	log.Println("Running analysis cycle...")
 	// report
 	// step process
-	// andle results
+	// handle results
 	return nil
 }

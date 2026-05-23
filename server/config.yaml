@@ -9,6 +9,3 @@ database:
 
 api:
   port: ":8080"
-
-analyzer:
-  interval: 60
