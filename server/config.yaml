@@ -6,3 +6,9 @@ server:
 
 database:
   dsn: "postgres://postgres:postgres@localhost:5432/distarpwatcher?sslmode=disable"
+
+api:
+  port: ":8080"
+
+analyzer:
+  interval: 60

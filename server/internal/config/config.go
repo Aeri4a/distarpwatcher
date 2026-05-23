@@ -7,17 +7,30 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	Server struct {
-		Port      string `yaml:"port"`
-		CaCert    string `yaml:"ca_cert"`
-		ServerPem string `yaml:"server_pem"`
-		ServerKey string `yaml:"server_key"`
-	} `yaml:"server"`
+type ServerConfig struct {
+	Port      string `yaml:"port"`
+	CaCert    string `yaml:"ca_cert"`
+	ServerPem string `yaml:"server_pem"`
+	ServerKey string `yaml:"server_key"`
+}
 
-	Database struct {
-		DSN string `yaml:"dsn"`
-	} `yaml:"database"`
+type DatabaseConfig struct {
+	DSN string `yaml:"dsn"`
+}
+
+type APIConfig struct {
+	Port string `yaml:"port"`
+}
+
+type AnalyzerConfig struct {
+	Interval int `yaml:"interval"`
+}
+
+type Config struct {
+	Server   ServerConfig   `yaml:"server"`
+	Database DatabaseConfig `yaml:"database"`
+	API      APIConfig      `yaml:"api"`
+	Analyzer AnalyzerConfig `yaml:"analyzer"`
 }
 
 func LoadConfig(path string) (*Config, error) {
