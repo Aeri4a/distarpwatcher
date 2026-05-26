@@ -1,0 +1,16 @@
+[project]
+name = "distarpwatcher-tests"
+version = "0.1.0"
+description = "Set of tests for DistARPWatcher"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "scapy>=2.5.0",
+]
+
+[project.scripts]
+arp-poison = "distarpwatcher_tests.arp_poison:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
