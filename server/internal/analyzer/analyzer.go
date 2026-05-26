@@ -30,6 +30,11 @@ type Analyzer struct {
 func NewAnalyzer(db database.Database, eventChan chan *pb.ARPEvent) *Analyzer {
 	steps := []AnalysisStep{
 		&MACChangeDetectorStep{db: db},
+		&FrequencyDetectorStep{
+			history:   make(map[string][]uint64),
+			threshold: 20,
+			window:    2 * 1000, // 2s
+		},
 	}
 
 	return &Analyzer{
