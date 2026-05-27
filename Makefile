@@ -1,7 +1,7 @@
 # Add Go bin directory to PATH so protoc can find protoc-gen-go and protoc-gen-go-grpc
 export PATH := $(shell go env GOPATH)/bin:$(PATH)
 
-.PHONY: all proto agent server clean cert-gen test-setup test-poison test-poison-container
+.PHONY: all proto agent server clean cert-gen test-setup test-poison test-flood test-poison-container
 
 all: proto agent server
 
@@ -37,6 +37,14 @@ test-poison:
 		-s $(SPOOF) \
 		$(if $(MAC),-m $(MAC)) \
 		-c 1
+
+test-flood:
+	@echo "Running ARP Flood Simulation (Requires sudo due to scapy raw sockets)"
+	@if [ -z "$(IFACE)" ]; then echo "Error: Please provide IFACE (e.g. make test-flood IFACE=eth0)"; exit 1; fi
+	cd tests && sudo .venv/bin/arp-flood \
+		-i $(IFACE) \
+		-c 100 \
+		-d 0.005
 
 test-poison-container:
 	@echo "Running ARP Poisoning test with container..."
