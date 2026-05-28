@@ -28,6 +28,14 @@ type IPMACBinding struct {
 	Status     BindingStatus
 }
 
+type NotificationChannel struct {
+	ID          int
+	Name        string
+	Type        string
+	Target      string
+	MinSeverity string
+}
+
 type Database interface {
 	SaveEvent(ctx context.Context, event *pb.ARPEvent) error
 
@@ -38,6 +46,9 @@ type Database interface {
 	UpdateStatus(ctx context.Context, ip string, status BindingStatus) error
 	UpdateMAC(ctx context.Context, ip string, mac string, timestamp uint64) error
 	GetAgentsForMAC(ctx context.Context, mac string, window time.Duration) ([]string, error)
+
+	// Notifier
+	GetActiveChannels(ctx context.Context) ([]NotificationChannel, error)
 
 	Close()
 }
@@ -221,8 +232,28 @@ func (db *PostgresDatabase) GetAgentsForMAC(ctx context.Context, mac string, win
 		if errors.Is(err, pgx.ErrNoRows) {
 			return []string{}, nil
 		}
-		return []string{}, nil
+		return []string{}, err
 	}
 
 	return agents, nil
+}
+
+func (db *PostgresDatabase) GetActiveChannels(ctx context.Context) ([]NotificationChannel, error) {
+	query := `
+		SELECT id, name, type, target, min_severity
+		FROM notification_channels
+		WHERE is_active = true
+	`
+
+	rows, err := db.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get active channels: %w", err)
+	}
+
+	channels, err := pgx.CollectRows(rows, pgx.RowToStructByName[NotificationChannel])
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect rows with channels into structs: %w", err)
+	}
+
+	return channels, nil
 }
