@@ -37,6 +37,7 @@ type Database interface {
 	UpdateLastSeen(ctx context.Context, ip string, timestamp uint64) error
 	UpdateStatus(ctx context.Context, ip string, status BindingStatus) error
 	UpdateMAC(ctx context.Context, ip string, mac string, timestamp uint64) error
+	GetAgentsForMAC(ctx context.Context, mac string, window time.Duration) ([]string, error)
 
 	Close()
 }
@@ -202,4 +203,26 @@ func (db *PostgresDatabase) UpdateMAC(ctx context.Context, ip string, mac string
 	}
 
 	return nil
+}
+
+func (db *PostgresDatabase) GetAgentsForMAC(ctx context.Context, mac string, window time.Duration) ([]string, error) {
+	query := `
+		SELECT array_agg(DISTINCT agent_id)
+		FROM arp_events
+		WHERE sender_mac = $1 AND captured_at > NOW() - $2::interval
+	`
+
+	intervalStr := fmt.Sprintf("%f seconds", window.Seconds())
+
+	var agents []string
+	err := db.pool.QueryRow(ctx, query, mac, intervalStr).Scan(&agents)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return []string{}, nil
+		}
+		return []string{}, nil
+	}
+
+	return agents, nil
 }
