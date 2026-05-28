@@ -22,12 +22,13 @@ type AnalysisStep interface {
 }
 
 type Analyzer struct {
-	db        database.Database
-	eventChan chan *pb.ARPEvent
-	steps     []AnalysisStep
+	db               database.Database
+	eventChan        chan *pb.ARPEvent
+	notificationChan chan *AnalysisReport
+	steps            []AnalysisStep
 }
 
-func NewAnalyzer(db database.Database, eventChan chan *pb.ARPEvent) *Analyzer {
+func NewAnalyzer(db database.Database, eventChan chan *pb.ARPEvent, notificationChan chan *AnalysisReport) *Analyzer {
 	steps := []AnalysisStep{
 		&MACChangeDetectorStep{db: db},
 		&MACSpoofDetectorStep{db: db},
@@ -39,9 +40,10 @@ func NewAnalyzer(db database.Database, eventChan chan *pb.ARPEvent) *Analyzer {
 	}
 
 	return &Analyzer{
-		db:        db,
-		eventChan: eventChan,
-		steps:     steps,
+		db:               db,
+		eventChan:        eventChan,
+		notificationChan: notificationChan,
+		steps:            steps,
 	}
 }
 
@@ -80,7 +82,8 @@ func (a *Analyzer) AnalyzeCycle(ctx context.Context, event *pb.ARPEvent) error {
 	}
 
 	if len(report.Findings) != 0 {
-		log.Printf("Found findings: %v", report.Findings)
+		//log.Printf("Found findings: %v", report.Findings)
+		a.notificationChan <- report
 	}
 
 	return nil

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"server/internal/notifier"
 	"server/pb"
 	"syscall"
 	"time"
@@ -38,9 +39,11 @@ func main() {
 
 	g, gCtx := errgroup.WithContext(ctx)
 	eventChan := make(chan *pb.ARPEvent, 1024)
+	notificationChan := make(chan *analyzer.AnalysisReport, 1024)
 
 	grpcSrv := collector.NewGRPCServer(cfg.Server, db, eventChan)
-	analyzerSrv := analyzer.NewAnalyzer(db, eventChan)
+	analyzerSrv := analyzer.NewAnalyzer(db, eventChan, notificationChan)
+	notifierSrv := notifier.NewNotifier(db, notificationChan)
 	apiSrv := api.NewAPIServer(cfg.API, db)
 
 	g.Go(func() error {
@@ -51,7 +54,11 @@ func main() {
 		return apiSrv.Start(gCtx)
 	})
 	g.Go(func() error {
+		defer close(notificationChan)
 		return analyzerSrv.Start(gCtx)
+	})
+	g.Go(func() error {
+		return notifierSrv.Start(gCtx)
 	})
 
 	log.Println("Distributed ARP Watcher Server is running. Press Ctrl+C to stop.")
