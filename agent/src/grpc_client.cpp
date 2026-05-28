@@ -33,39 +33,66 @@ static std::string get_file_contents(const char *filename) {
 class ARPClient {
 public:
     ARPClient(std::shared_ptr<Channel> channel)
-        : stub_(ARPCollector::NewStub(channel)) {
-        stream_ = stub_->ARPStream(&context_, &response_);
+        : channel_(channel), stub_(ARPCollector::NewStub(channel)) {
+        connectStream();
     }
 
     ~ARPClient() {
+        closeStream();
+    }
+
+    void SendEvent(const ARPEvent& event) {
+        if (!stream_) {
+            std::cerr << "[gRPC Info] Stream not active. Attempting to reconnect..." << std::endl;
+            connectStream();
+        }
+
+        if (stream_) {
+            if (!stream_->Write(event)) {
+                stream_->WritesDone();
+                Status status = stream_->Finish();
+
+                std::cerr << "[gRPC Error] Write failed. Reason: ["
+                          << status.error_code() << "] " << status.error_message() << std::endl;
+
+                if (!status.error_details().empty()) {
+                    std::cerr << "  [Details] " << status.error_details() << std::endl;
+                }
+
+                stream_ = nullptr;
+            }
+        } else {
+            std::cerr << "[gRPC Error] Reconnection failed. Dropping event." << std::endl;
+        }
+    }
+
+private:
+    void connectStream() {
+        context_ = std::make_unique<ClientContext>();
+        stream_ = stub_->ARPStream(context_.get(), &response_);
+    }
+
+    void closeStream() {
         if (stream_) {
             stream_->WritesDone();
             Status status = stream_->Finish();
             if (!status.ok()) {
-                std::cerr << "gRPC Stream finished with error: " 
+                std::cerr << "[gRPC Error] Stream closed with error code " 
                           << status.error_code() << ": " << status.error_message() << std::endl;
             } else {
                 std::cout << "gRPC Stream finished successfully. Events received by server: " 
                           << response_.events_received() << std::endl;
             }
+            stream_ = nullptr;
         }
     }
 
-    void SendEvent(const ARPEvent& event) {
-        if (stream_) {
-            if (!stream_->Write(event)) {
-                std::cerr << "Failed to write event to gRPC stream." << std::endl;
-            }
-        }
-    }
-
-private:
+    std::shared_ptr<Channel> channel_;
     std::unique_ptr<ARPCollector::Stub> stub_;
-    ClientContext context_;
+    std::unique_ptr<ClientContext> context_;
     ARPEventResponse response_;
     std::unique_ptr<ClientWriter<ARPEvent>> stream_;
 };
-
 static std::unique_ptr<ARPClient> g_client = nullptr;
 
 extern "C" {
