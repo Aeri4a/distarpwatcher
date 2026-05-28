@@ -58,7 +58,7 @@ func (s *CollectorGRPCServer) Start(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		log.Println("Shutting down gRPC server...")
-		grpcServer.GracefulStop()
+		grpcServer.Stop()
 		return ctx.Err()
 	case err := <-errChan:
 		return err
