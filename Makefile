@@ -60,6 +60,6 @@ server: proto
 clean:
 	rm -rf server/pb
 	rm -rf agent/src/pb
-	rm -rf common/certs
+	rm -rf certs
 	$(MAKE) -C agent clean
 	$(MAKE) -C server clean
