@@ -1,7 +1,7 @@
 # Add Go bin directory to PATH so protoc can find protoc-gen-go and protoc-gen-go-grpc
 export PATH := $(shell go env GOPATH)/bin:$(PATH)
 
-.PHONY: all proto agent server clean cert-gen test-setup test-poison test-flood test-poison-container
+.PHONY: all proto agent server clean cert-gen test-setup test-poison test-flood test-alert-server test-poison-container
 
 all: proto agent server
 
@@ -45,6 +45,10 @@ test-flood:
 		-i $(IFACE) \
 		-c 100 \
 		-d 0.005
+
+test-alert-server:
+	@echo "Starting Mock Webhook Server on port 9000..."
+	cd tests && .venv/bin/alert-server -p 9000
 
 test-poison-container:
 	@echo "Running ARP Poisoning test with container..."

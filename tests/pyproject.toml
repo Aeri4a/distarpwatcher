@@ -11,6 +11,7 @@ dependencies = [
 [project.scripts]
 arp-poison = "distarpwatcher_tests.arp_poison:main"
 arp-flood = "distarpwatcher_tests.arp_flood:main"
+alert-server = "distarpwatcher_tests.alert_server:main"
 
 [build-system]
 requires = ["hatchling"]
