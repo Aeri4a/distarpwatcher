@@ -14,7 +14,7 @@ import (
 type WebhookSender struct{}
 
 type WebhookPayload struct {
-	Agent   string `json:"agent"`
+	Agent   string `json:"agent_id"`
 	Message string `json:"message"`
 }
 
@@ -22,7 +22,7 @@ func (sen *WebhookSender) SendAlert(ctx context.Context, channel database.Notifi
 	url := channel.Target
 
 	payload := WebhookPayload{
-		Agent:   "",
+		Agent:   report.Event.AgentId,
 		Message: strings.Join(report.Findings, "\n"),
 	}
 
