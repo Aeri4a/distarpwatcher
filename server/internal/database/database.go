@@ -29,11 +29,11 @@ type IPMACBinding struct {
 }
 
 type NotificationChannel struct {
-	ID          int
-	Name        string
-	Type        string
-	Target      string
-	MinSeverity string
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Target      string `json:"target"`
+	MinSeverity string `json:"min_severity"`
 }
 
 type Database interface {
@@ -49,6 +49,10 @@ type Database interface {
 
 	// Notifier
 	GetActiveChannels(ctx context.Context) ([]NotificationChannel, error)
+	GetAllNotificationChannels(ctx context.Context) ([]NotificationChannel, error)
+	CreateNotificationChannel(ctx context.Context, ch *NotificationChannel) (int, error)
+	UpdateNotificationChannel(ctx context.Context, id int, ch *NotificationChannel) error
+	DeleteNotificationChannel(ctx context.Context, id int) error
 
 	Close()
 }
@@ -256,4 +260,77 @@ func (db *PostgresDatabase) GetActiveChannels(ctx context.Context) ([]Notificati
 	}
 
 	return channels, nil
+}
+
+func (db *PostgresDatabase) GetAllNotificationChannels(ctx context.Context) ([]NotificationChannel, error) {
+	query := `
+		SELECT id, name, type, target, min_severity
+		FROM notification_channels
+		ORDER BY id ASC
+	`
+
+	rows, err := db.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all channels: %w", err)
+	}
+
+	channels, err := pgx.CollectRows(rows, pgx.RowToStructByName[NotificationChannel])
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect channels: %w", err)
+	}
+
+	return channels, nil
+}
+
+func (db *PostgresDatabase) CreateNotificationChannel(ctx context.Context, ch *NotificationChannel) (int, error) {
+	query := `
+		INSERT INTO notification_channels (name, type, target, min_severity)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id
+	`
+
+	var id int
+	err := db.pool.QueryRow(ctx, query, ch.Name, ch.Type, ch.Target, ch.MinSeverity).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create channel: %w", err)
+	}
+
+	return id, nil
+}
+
+func (db *PostgresDatabase) UpdateNotificationChannel(ctx context.Context, id int, ch *NotificationChannel) error {
+	query := `
+		UPDATE notification_channels
+		SET name = $1, type = $2, target = $3, min_severity = $4, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $5
+	`
+
+	cmd, err := db.pool.Exec(ctx, query, ch.Name, ch.Type, ch.Target, ch.MinSeverity, id)
+	if err != nil {
+		return fmt.Errorf("failed to update channel: %w", err)
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("channel with id %d not found", id)
+	}
+
+	return nil
+}
+
+func (db *PostgresDatabase) DeleteNotificationChannel(ctx context.Context, id int) error {
+	query := `
+		DELETE FROM notification_channels
+		WHERE id = $1
+	`
+
+	cmd, err := db.pool.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete channel: %w", err)
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("channel with id %d not found", id)
+	}
+
+	return nil
 }

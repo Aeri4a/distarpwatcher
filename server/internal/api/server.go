@@ -54,6 +54,7 @@ func NewAPIServer(cfg config.APIConfig, db database.Database) *APIServer {
 func (s *APIServer) Start(ctx context.Context) error {
 	r := newRouter(
 		routes.NewARPEventsRoutes(s.db),
+		routes.NewNotificationChannelsRoutes(s.db),
 	)
 
 	srv := &http.Server{
