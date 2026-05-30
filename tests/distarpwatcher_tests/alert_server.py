@@ -18,6 +18,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
             print("\n" + "="*40)
             print("Received webhook alert")
             print(f"Agent ID: {payload.get('agent_id', 'N/A')}")
+            print(f"Target IP: {payload.get('target_ip', 'N/A')}")
+            print(f"Attack: {payload.get('attack', 'N/A')}")
             print(f"Message:  {payload.get('message', 'N/A')}")
             print("="*40 + "\n")
             
