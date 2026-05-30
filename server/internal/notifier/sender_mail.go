@@ -8,6 +8,6 @@ import (
 
 type MailSender struct{}
 
-func (sen *MailSender) SendAlert(ctx context.Context, channel database.NotificationChannel, report *analyzer.AnalysisReport) error {
+func (sen *MailSender) SendAlert(ctx context.Context, channel database.NotificationChannel, alert *analyzer.Alert) error {
 	return nil
 }

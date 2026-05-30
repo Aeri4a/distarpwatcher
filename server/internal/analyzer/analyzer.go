@@ -3,18 +3,33 @@ package analyzer
 import (
 	"context"
 	"log"
+	"net"
 	"server/internal/database"
 	"server/pb"
 )
 
-type AnalysisReport struct {
-	Event    *pb.ARPEvent
-	Flags    uint32 // skipped for now
-	Findings []string
+type AttackType string
+
+const (
+	AttackARPFlood     AttackType = "ARP_FLOOD"
+	AttackMACSpoofing  AttackType = "MAC_SPOOFING"
+	AttackARPPoisoning AttackType = "ARP_POISONING"
+)
+
+type Alert struct {
+	AgentId    string
+	TargetIp   string
+	AttackType AttackType
+	Message    string
 }
 
-func (ar *AnalysisReport) AddFinding(finding string) {
-	ar.Findings = append(ar.Findings, finding)
+type AnalysisReport struct {
+	Event   *pb.ARPEvent
+	Attacks map[AttackType]string
+}
+
+func (ar *AnalysisReport) RegisterAttack(attackType AttackType, finding string) {
+	ar.Attacks[attackType] = finding
 }
 
 type AnalysisStep interface {
@@ -24,11 +39,11 @@ type AnalysisStep interface {
 type Analyzer struct {
 	db               database.Database
 	eventChan        chan *pb.ARPEvent
-	notificationChan chan *AnalysisReport
+	notificationChan chan *Alert
 	steps            []AnalysisStep
 }
 
-func NewAnalyzer(db database.Database, eventChan chan *pb.ARPEvent, notificationChan chan *AnalysisReport) *Analyzer {
+func NewAnalyzer(db database.Database, eventChan chan *pb.ARPEvent, notificationChan chan *Alert) *Analyzer {
 	steps := []AnalysisStep{
 		&MACChangeDetectorStep{db: db},
 		&MACSpoofDetectorStep{db: db},
@@ -70,9 +85,8 @@ func (a *Analyzer) Start(ctx context.Context) error {
 
 func (a *Analyzer) AnalyzeCycle(ctx context.Context, event *pb.ARPEvent) error {
 	report := &AnalysisReport{
-		Event:    event,
-		Flags:    0,
-		Findings: []string{},
+		Event:   event,
+		Attacks: make(map[AttackType]string),
 	}
 
 	for _, step := range a.steps {
@@ -81,9 +95,19 @@ func (a *Analyzer) AnalyzeCycle(ctx context.Context, event *pb.ARPEvent) error {
 		}
 	}
 
-	if len(report.Findings) != 0 {
-		//log.Printf("Found findings: %v", report.Findings)
-		a.notificationChan <- report
+	if len(report.Attacks) != 0 {
+		for attack, msg := range report.Attacks {
+			targetIPString := net.IP(event.TargetIp).String()
+
+			alert := &Alert{
+				AgentId:    event.AgentId,
+				TargetIp:   targetIPString,
+				AttackType: attack,
+				Message:    msg,
+			}
+
+			a.notificationChan <- alert
+		}
 	}
 
 	return nil

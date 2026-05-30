@@ -2,27 +2,34 @@ package notifier
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"server/internal/analyzer"
 	"server/internal/database"
+	"time"
 )
 
 type Sender interface {
-	SendAlert(ctx context.Context, channel database.NotificationChannel, report *analyzer.AnalysisReport) error
+	SendAlert(ctx context.Context, channel database.NotificationChannel, alert *analyzer.Alert) error
 }
 
 type Notifier struct {
 	db               database.Database
-	notificationChan chan *analyzer.AnalysisReport
+	notificationChan chan *analyzer.Alert
 
 	senders map[string]Sender
+
+	lastAlerted    map[string]time.Time
+	cooldownPeriod time.Duration
 }
 
-func NewNotifier(db database.Database, notificationChan chan *analyzer.AnalysisReport) *Notifier {
+func NewNotifier(db database.Database, notificationChan chan *analyzer.Alert) *Notifier {
 	notif := &Notifier{
 		db:               db,
 		notificationChan: notificationChan,
 		senders:          make(map[string]Sender),
+		lastAlerted:      make(map[string]time.Time),
+		cooldownPeriod:   time.Minute * 2,
 	}
 
 	notif.senders["MAIL"] = &MailSender{}
@@ -39,10 +46,15 @@ func (notif *Notifier) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Println("Shutting down Notifier...")
 			return ctx.Err()
-		case report, ok := <-notif.notificationChan:
+		case alert, ok := <-notif.notificationChan:
 			if !ok {
 				log.Println("Notification channel closed.")
 				return nil
+			}
+
+			if notif.shouldThrottle(alert) {
+				log.Println("Alert throttled.")
+				continue
 			}
 
 			channels, err := notif.db.GetActiveChannels(ctx)
@@ -63,12 +75,30 @@ func (notif *Notifier) Start(ctx context.Context) error {
 					continue
 				}
 
-				go func(ch database.NotificationChannel, r *analyzer.AnalysisReport) {
-					if err := sender.SendAlert(context.Background(), ch, r); err != nil {
+				go func(ch database.NotificationChannel, al *analyzer.Alert) {
+					if err := sender.SendAlert(context.Background(), ch, al); err != nil {
 						log.Printf("Failed to send alert via %s (%s): %v ", ch.Name, ch.Type, err)
 					}
-				}(channel, report)
+				}(channel, alert)
 			}
 		}
 	}
+}
+
+func (notif *Notifier) shouldThrottle(alert *analyzer.Alert) bool {
+	// there should be some cleaning for lastAlerted
+	signature := fmt.Sprintf("%s:%s:%s", alert.AgentId, alert.TargetIp, alert.AttackType)
+
+	lastAlerted, exist := notif.lastAlerted[signature]
+	if !exist {
+		notif.lastAlerted[signature] = time.Now()
+		return false
+	}
+
+	if time.Since(lastAlerted) < notif.cooldownPeriod {
+		return true
+	}
+
+	notif.lastAlerted[signature] = time.Now()
+	return false
 }

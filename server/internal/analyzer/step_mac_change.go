@@ -59,8 +59,9 @@ func (macdet *MACChangeDetectorStep) Process(ctx context.Context, report *Analys
 		return nil
 	}
 
-	report.AddFinding(fmt.Sprintf("IP %s was previously at [%s], but now reports at [%s]. Potential ARP Poisoning detected.",
-		senderIPnet.String(), currentBinding.MACAddress, senderMAC))
+	msg := fmt.Sprintf("IP %s was previously at [%s], but now reports at [%s]. Potential ARP Poisoning detected.",
+		senderIPnet.String(), currentBinding.MACAddress, senderMAC)
+	report.RegisterAttack(AttackARPPoisoning, msg)
 
 	err = macdet.db.UpdateStatus(ctx, senderIPnet.String(), database.BIND_CONFLICT)
 	if err != nil {

@@ -39,7 +39,7 @@ func main() {
 
 	g, gCtx := errgroup.WithContext(ctx)
 	eventChan := make(chan *pb.ARPEvent, 1024)
-	notificationChan := make(chan *analyzer.AnalysisReport, 1024)
+	notificationChan := make(chan *analyzer.Alert, 1024)
 
 	grpcSrv := collector.NewGRPCServer(cfg.Server, db, eventChan)
 	analyzerSrv := analyzer.NewAnalyzer(db, eventChan, notificationChan)

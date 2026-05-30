@@ -8,22 +8,25 @@ import (
 	"net/http"
 	"server/internal/analyzer"
 	"server/internal/database"
-	"strings"
 )
 
 type WebhookSender struct{}
 
 type WebhookPayload struct {
-	AgentId string `json:"agent_id"`
-	Message string `json:"message"`
+	AgentId  string `json:"agent_id"`
+	TargetIp string `json:"target_ip"`
+	Attack   string `json:"attack"`
+	Message  string `json:"message"`
 }
 
-func (sen *WebhookSender) SendAlert(ctx context.Context, channel database.NotificationChannel, report *analyzer.AnalysisReport) error {
+func (sen *WebhookSender) SendAlert(ctx context.Context, channel database.NotificationChannel, alert *analyzer.Alert) error {
 	url := channel.Target
 
 	payload := WebhookPayload{
-		AgentId: report.Event.AgentId,
-		Message: strings.Join(report.Findings, "\n"),
+		AgentId:  alert.AgentId,
+		TargetIp: alert.TargetIp,
+		Attack:   string(alert.AttackType),
+		Message:  alert.Message,
 	}
 
 	jsonPayload, err := json.Marshal(payload)

@@ -29,10 +29,11 @@ func (msd *MACSpoofDetectorStep) Process(ctx context.Context, report *AnalysisRe
 			agentList += a
 		}
 
-		report.AddFinding(fmt.Sprintf(
+		msg := fmt.Sprintf(
 			"Segment Conflict (MAC Spoofing/Flapping): MAC [%s] is being reported simultaneously by multiple agents: [%s]",
 			senderMAC, agentList,
-		))
+		)
+		report.RegisterAttack(AttackMACSpoofing, msg)
 	}
 
 	return nil

@@ -22,8 +22,9 @@ func (freqdet *FrequencyDetectorStep) Process(ctx context.Context, report *Analy
 	freqdet.history[senderMac] = append(freqdet.history[senderMac], report.Event.Timestamp)
 
 	if len(freqdet.history[senderMac]) > freqdet.threshold {
-		report.AddFinding(fmt.Sprintf("ARP Flood detected from MAC [%s]: %d packets in the last %dms",
-			senderMac, len(freqdet.history[senderMac]), freqdet.window))
+		msg := fmt.Sprintf("ARP Flood detected from MAC [%s]: %d packets in the last %dms",
+			senderMac, len(freqdet.history[senderMac]), freqdet.window)
+		report.RegisterAttack(AttackARPFlood, msg)
 	}
 
 	return nil
