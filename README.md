@@ -79,11 +79,6 @@ Compile the entire stack (Protobufs, C++ Agent, and Go Server) from the root dir
 make all
 ```
 
-Generate necessary certificates
-```bash
-make cert-gen
-```
-
 ### Start the Centralized Server
 ```bash
 make -C server run
