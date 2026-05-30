@@ -95,7 +95,29 @@ make -C agent run
 
 ---
 
-## 4. Testing & Simulations
+## 4. API & Database Overview
+
+### REST API Endpoints
+The Go server exposes a REST API (default `http://localhost:8080/api/v1`) to manage system configurations dynamically without restarting.
+
+**Notification Channels:**
+*   `GET /notification_channels` - List all active and inactive notification destinations.
+*   `POST /notification_channels` - Create a new destination (Requires JSON: `Name`, `Type` (WEBHOOK/MAIL), `Target`, and optional `MinSeverity`).
+*   `PUT /notification_channels/{id}` - Update an existing channel.
+*   `DELETE /notification_channels/{id}` - Remove a channel.
+
+**ARP Events:**
+*   `GET /arp_events` - (Placeholder) Retrieve historical ARP events.
+
+### Database Schema
+The system uses PostgreSQL for both historical auditing and real-time state tracking.
+*   **`arp_events`**: The immutable audit log. Stores every single ARP packet received from the gRPC stream.
+*   **`ip_mac_bindings`**: The "Current State" table. Managed exclusively by the Analyzer to track the authoritative MAC address for every known IP, including its `last_seen` timestamp and `status` (TRUSTED/CONFLICT).
+*   **`notification_channels`**: Stores dynamic routing configurations for the Notifier service.
+
+---
+
+## 5. Testing & Simulations
 
 The project includes a comprehensive, isolated Python testing suite using `uv` to safely simulate network attacks.
 
