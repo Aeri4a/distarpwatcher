@@ -1,57 +1,131 @@
 # Distributed ARP Watcher
 
-A distributed system for capturing and aggregating ARP events across multiple nodes. It consists of a high-performance C/C++ agent that sniffs network traffic using `libpcap` and streams ARP packets over gRPC to a Go-based centralized collector server.
+Distributed Intrusion Detection System (IDS) specifically designed to monitor, aggregate, and analyze ARP traffic across multiple network segments in real-time.
 
-## Prerequisites
+It utilizes a C Agent with gRPC C++ wrapper to sniff raw packets via `libpcap`, streaming events over an mTLS-encrypted gRPC tunnel to a centralized Go Server. The server leverages PostgreSQL for state tracking and features an Analyzer engine to instantly detect and mitigate network attacks and notifies configured notification channels.
 
-### 1. System Dependencies (Fedora / RHEL)
+## Core Features
+*   **Encrypted Transport:** Mutual TLS (mTLS) ensures all agents are cryptographically verified and all captured network data is encrypted in transit.
+*   **Real-Time Analytics Pipeline:**
+    *   **ARP Poisoning / Hijacking Detection:** Detects if an attacker attempts to steal a trusted IP by advertising a malicious MAC address.
+    *   **MAC Spoofing / Flapping Detection:** Identifies physical anomalies, such as a single MAC address appearing on multiple distinct network segments simultaneously.
+    *   **ARP Flood Detection:** Identifies DoS/Reconnaissance attempts by rate-limiting and tracking high-volume burst traffic from specific endpoints.
+*   **Dynamic Notification Routing:** Configure Webhook or Email alert destinations dynamically via a REST API.
+*   **Systemd Ready:** The Agent is built to run as a robust Linux daemon with structured native `journald` logging and auto-reconnect capabilities.
+
+---
+
+## 1. Prerequisites & Installation
+
+### A. System Dependencies (Fedora / RHEL)
 You will need the C++ gRPC libraries, protobuf tools, and `libpcap` to compile the agent.
 
 ```bash
 sudo dnf install protobuf-devel grpc-devel grpc-plugins libpcap-devel gcc-c++ make pkgconf-pkg-config
 ```
 
-### 2. Go Dependencies
-You will need Go installed, along with the Protobuf and gRPC plugins for Go.
+### B. Go Environment
+Ensure Go is installed, and fetch the necessary Protobuf/gRPC plugins:
 
 ```bash
-# Install the Go protoc plugins
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 ```
-*(The root Makefile automatically includes your `$(go env GOPATH)/bin` in its PATH, so you do not need to manually configure your environment variables for the build).*
 
-## Building
+### C. Database Setup
+*(The server handles its own schema migrations automatically on boot using `golang-migrate`).*
 
-The project uses a root Makefile to orchestrate the generation of Protobuf files and the compilation of both the agent and the server.
+The Go server requires a PostgreSQL instance.
 
-To build the entire project from the root directory, simply run:
+You can use Docker with `docker-compose.yml` and a default configuration.
+```bash
+cd server && docker compose up -d
+```
+
+---
+
+## 2. Configuration & Security Setup
+
+### Generate mTLS Certificates
+Before building, you must generate the cryptographic trust chain. There is available OpenSSL script for this.
+
+```bash
+# Generate the Root CA, Server Cert, and a default Client Cert
+make cert-gen
+```
+*Note: To generate a specific certificate for a remote LAN device, use: `./common/cert_gen.sh -c -n my-remote-agent`*
+
+### Server Configuration
+Edit `server/config.yaml` to set your PostgreSQL connection string and desired ports.
+```yaml
+server:
+  port: ":50051" # gRPC Listening Port
+api:
+  port: ":8080"  # REST API Port
+database:
+  dsn: "postgres://postgres:postgres@localhost:5432/distarpwatcher?sslmode=disable"
+```
+
+### Agent Configuration
+Edit `agent/agent.conf` for setting agent_id, interface, server and certificates.
+
+---
+
+## 3. Building and Running
+
+Compile the entire stack (Protobufs, C++ Agent, and Go Server) from the root directory:
 
 ```bash
 make all
 ```
 
-This will:
-1. Generate the Go gRPC code in `server/pb/`.
-2. Generate the C++ gRPC code in `agent/src/pb/`.
-3. Compile the C/C++ agent into `agent/build/arp_watcher`.
-4. Compile the Go server into `server/build/server`.
+Generate necessary certificates
+```bash
+make cert-gen
+```
 
-## Running
-
-### 1. Start the Server
-Start the Go server to listen for incoming gRPC connections from agents on port `50051`.
-
+### Start the Centralized Server
 ```bash
 make -C server run
 ```
-*(Or manually: `./server/build/server`)*
 
-### 2. Start the Agent
-The agent requires `sudo` privileges to capture packets using `libpcap`. It will automatically connect to `localhost:50051` and start streaming captured ARP packets.
+### Start the Agent
+The agent requires `sudo` privileges to sniff the network. 
+*Ensure your `agent/agent.conf` points to the correct Server IP and Certificate paths before running.*
 
 ```bash
-cd agent
-sudo ./build/arp_watcher [interface]
+make -C agent run
 ```
-- *`[interface]` is optional. If omitted, it defaults to capturing on `any` interface.*
+*(If no config path is provided, it defaults to `/etc/distarpwatcher/agent.conf`, falling back to a local `./agent.conf`)*
+
+---
+
+## 4. Testing & Simulations
+
+The project includes a comprehensive, isolated Python testing suite using `uv` to safely simulate network attacks.
+
+### Setup Test Environment
+Initialize the `uv` virtual environment and install dependencies (`scapy`):
+```bash
+make test-setup
+```
+
+### A. Mock Webhook Receiver
+Start a local HTTP server to catch and print alerts generated by the Go Notifier:
+```bash
+make test-alert-server
+```
+*(To test: remember to use the REST API `POST /api/v1/notification_channels` to register `http://localhost:9000` as a webhook destination)*
+
+### B. Simulate an ARP Flood
+Blast 100 packets in a fraction of a second to test the `FrequencyDetectorStep` rate limiter.
+```bash
+make test-flood IFACE=<your_interface>
+```
+
+### C. Simulate ARP Poisoning
+Send a targeted forged ARP packet to spoof an IP address, testing the `MACChangeDetectorStep`.
+```bash
+make test-poison IFACE=<your_interface> TARGET=<victim_ip> SPOOF=<gateway_ip>
+```
+*(Note: Modern Linux kernels aggressively drop unsolicited ARP packets. To ensure a successful cache poisoning test, there is possibility to attact light prepared docker container - use `make test-poison-container`).*
