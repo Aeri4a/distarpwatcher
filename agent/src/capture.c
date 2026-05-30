@@ -2,6 +2,7 @@
 #include "signals.h"
 #include "grpc_client.h"
 #include "config.h"
+#include "log.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
@@ -16,17 +17,17 @@ pcap_t* init_capture(const char* device) {
 
     handle = pcap_open_live(device, BUFSIZ, 1, 1000, errbuf);
     if (handle == NULL) {
-        fprintf(stderr, "Couldn't open device %s: %s\n", device, errbuf);
+        LOG_ERR("Couldn't open device %s: %s", device, errbuf);
         return nullptr;
     }
 
     if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
-        fprintf(stderr, "Couldn't parse filter %s: %s\n", filter_exp, pcap_geterr(handle));
+        LOG_ERR("Couldn't parse filter %s: %s", filter_exp, pcap_geterr(handle));
         return nullptr;
     }
 
     if (pcap_setfilter(handle, &fp) == -1) {
-        fprintf(stderr, "Couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
+        LOG_ERR("Couldn't install filter %s: %s", filter_exp, pcap_geterr(handle));
         pcap_freecode(&fp);
         return nullptr;
     }
@@ -48,16 +49,16 @@ void start_capture_loop(pcap_t *handle) {
     } else if (link_type == DLT_LINUX_SLL) {
         header_offset = 16; /* Linux Cooked Capture (SLL) header size */
     } else {
-        fprintf(stderr, "Warning: Unsupported datalink type %d, assuming Ethernet.\n", link_type);
+        LOG_WARN("Unsupported datalink type %d, assuming Ethernet.", link_type);
         header_offset = 14;
     }
 
-    printf("Starting capture loop...\n");
+    LOG_INFO("Starting capture loop...");
     while (keep_running) {
         res = pcap_next_ex(handle, &header, &packet);
         if (res == 0) continue; /* Timeout */
         if (res == -1) {
-            fprintf(stderr, "Error reading the packets: %s\n", pcap_geterr(handle));
+            LOG_ERR("Error reading the packets: %s", pcap_geterr(handle));
             break;
         }
         if (res == -2) break; /* pcap_breakloop */
@@ -68,13 +69,11 @@ void start_capture_loop(pcap_t *handle) {
 
         arp = (struct ether_arp*)(packet + header_offset);
         
-        printf("Captured ARP packet: length %d\n", header->len);
-        printf("  Target MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
-           arp->arp_tha[0], arp->arp_tha[1], arp->arp_tha[2],
-           arp->arp_tha[3], arp->arp_tha[4], arp->arp_tha[5]);
-        printf("  Target IP:  %d.%d.%d.%d\n",
+        LOG_DEBUG("ARP [Opcode: %d] Sender: %d.%d.%d.%d (%02X:%02X:%02X:%02X:%02X:%02X) -> Target: %d.%d.%d.%d", 
+               ntohs(arp->ea_hdr.ar_op),
+               arp->arp_spa[0], arp->arp_spa[1], arp->arp_spa[2], arp->arp_spa[3],
+               arp->arp_sha[0], arp->arp_sha[1], arp->arp_sha[2], arp->arp_sha[3], arp->arp_sha[4], arp->arp_sha[5],
                arp->arp_tpa[0], arp->arp_tpa[1], arp->arp_tpa[2], arp->arp_tpa[3]);
-        printf("==========================================\n\n");
 
         send_arp_event(
             global_config.agent_id,
@@ -85,5 +84,5 @@ void start_capture_loop(pcap_t *handle) {
             arp->arp_sha
         );
     }
-    printf("Capture loop stopped.\n");
+    LOG_INFO("Capture loop stopped.");
 }

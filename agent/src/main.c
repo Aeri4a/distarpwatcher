@@ -2,26 +2,27 @@
 #include "capture.h"
 #include "grpc_client.h"
 #include "config.h"
+#include "log.h"
 #include <stdio.h>
 
 int main(int argc, char *argv[]) {
     if (argc > 1) {
         if (load_config(argv[1]) != 0) {
-            fprintf(stderr, "Error: Could not load specified config file '%s'\n", argv[1]);
+            LOG_ERR("Could not load specified config file '%s'", argv[1]);
             return 1;
         }
     } else {
         if (load_config("/etc/distarpwatcher/agent.conf") != 0) {
             if (load_config("agent.conf") != 0) { // fallback to local
-                printf("Warning: No config file found. Using default settings.\n");
+                LOG_WARN("No config file found. Using default settings.");
             }
         }
     }
 
-    printf("Starting ARP Watcher Agent\n");
-    printf("  Agent ID: %s\n", global_config.agent_id);
-    printf("  Server Address: %s\n", global_config.server_address);
-    printf("  Capture Interface: %s\n", global_config.interface);
+    LOG_INFO("Starting ARP Watcher Agent");
+    LOG_INFO("Agent ID: %s", global_config.agent_id);
+    LOG_INFO("Server Address: %s", global_config.server_address);
+    LOG_INFO("Capture Interface: %s", global_config.interface);
 
     init_grpc_client(global_config.server_address);
 
@@ -36,10 +37,10 @@ int main(int argc, char *argv[]) {
     set_pcap_handle(handle);
     start_capture_loop(handle);
 
-    printf("Cleaning up...\n");
+    LOG_INFO("Cleaning up...");
     pcap_close(handle);
     destroy_grpc_client();
-    printf("Exiting gracefully.\n");
+    LOG_INFO("Exiting gracefully.");
 
     return 0;
 }

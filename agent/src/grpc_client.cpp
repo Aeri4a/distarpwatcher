@@ -1,5 +1,6 @@
 #include "grpc_client.h"
 #include "config.h"
+#include "log.h"
 #include <iostream>
 #include <memory>
 #include <string>
@@ -26,7 +27,7 @@ static std::string get_file_contents(const char *filename) {
         in.close();
         return contents.str();
     }
-    std::cerr << "Warning: Could not read certificate file: " << filename << std::endl;
+    LOG_WARN("Could not read certificate file: %s", filename);
     return "";
 }
 
@@ -43,7 +44,7 @@ public:
 
     void SendEvent(const ARPEvent& event) {
         if (!stream_) {
-            std::cerr << "[gRPC Info] Stream not active. Attempting to reconnect..." << std::endl;
+            LOG_INFO("gRPC stream not active. Attempting to reconnect...");
             connectStream();
         }
 
@@ -52,17 +53,16 @@ public:
                 stream_->WritesDone();
                 Status status = stream_->Finish();
 
-                std::cerr << "[gRPC Error] Write failed. Reason: ["
-                          << status.error_code() << "] " << status.error_message() << std::endl;
+                LOG_ERR("gRPC Write failed. Reason: [%d] %s", status.error_code(), status.error_message().c_str());
 
                 if (!status.error_details().empty()) {
-                    std::cerr << "  [Details] " << status.error_details() << std::endl;
+                    LOG_ERR("gRPC Error Details: %s", status.error_details().c_str());
                 }
 
                 stream_ = nullptr;
             }
         } else {
-            std::cerr << "[gRPC Error] Reconnection failed. Dropping event." << std::endl;
+            LOG_ERR("gRPC Reconnection failed. Dropping event.");
         }
     }
 
@@ -77,11 +77,9 @@ private:
             stream_->WritesDone();
             Status status = stream_->Finish();
             if (!status.ok()) {
-                std::cerr << "[gRPC Error] Stream closed with error code " 
-                          << status.error_code() << ": " << status.error_message() << std::endl;
+                LOG_ERR("gRPC Stream closed with error code %d: %s", status.error_code(), status.error_message().c_str());
             } else {
-                std::cout << "gRPC Stream finished successfully. Events received by server: " 
-                          << response_.events_received() << std::endl;
+                LOG_INFO("gRPC Stream finished successfully. Events received by server: %d", response_.events_received());
             }
             stream_ = nullptr;
         }
@@ -111,7 +109,7 @@ void init_grpc_client(const char* target) {
         g_client = std::make_unique<ARPClient>(grpc::CreateChannel(
             target_str, channel_creds));
         
-        std::cout << "Initialized gRPC client (mTLS) connected to " << target_str << std::endl;
+        LOG_INFO("Initialized gRPC client (mTLS) connected to %s", target);
     }
 }
 
@@ -127,7 +125,6 @@ void send_arp_event(
         ARPEvent event;
         event.set_agent_id(agent_id);
         
-        // Current timestamp in milliseconds
         auto now = std::chrono::system_clock::now();
         auto duration = now.time_since_epoch();
         event.set_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
