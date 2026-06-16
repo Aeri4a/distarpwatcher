@@ -47,7 +47,7 @@ func (sen *WebhookSender) SendAlert(ctx context.Context, channel database.Notifi
 	}
 	defer resp.Body.Close()
 
-	log.Printf("Alert sent to [%s] channel.", channel.Name)
+	log.Printf("[Sender][Webhook] Alert sent successfully to [%s], by channel name %s", channel.Target, channel.Name)
 
 	return nil
 }
