@@ -15,11 +15,17 @@ pcap_t* init_capture(const char* device) {
     char filter_exp[] = "arp";
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
 
-    handle = pcap_open_live(device, BUFSIZ, 1, 1000, errbuf);
+    handle = pcap_create(device, errbuf);
     if (handle == NULL) {
         LOG_ERR("Couldn't open device %s: %s", device, errbuf);
         return nullptr;
     }
+
+    // pcap_set_promisc(handle, 1); /* off, because "any" will be mainly used */
+    pcap_set_immediate_mode(handle, 1);
+    pcap_set_snaplen(handle, BUFSIZ);
+    pcap_set_timeout(handle, 1000);
+    pcap_activate(handle);
 
     if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
         LOG_ERR("Couldn't parse filter %s: %s", filter_exp, pcap_geterr(handle));
