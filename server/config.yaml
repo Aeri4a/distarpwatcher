@@ -9,3 +9,10 @@ database:
 
 api:
   port: ":8080"
+
+mail:
+  host: "localhost"
+  port: 1025
+  from: "distarpwatcher@local.network"
+  username: ""
+  password: ""

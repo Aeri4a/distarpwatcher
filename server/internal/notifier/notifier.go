@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"server/internal/analyzer"
+	"server/internal/config"
 	"server/internal/database"
 	"time"
 )
@@ -23,7 +24,7 @@ type Notifier struct {
 	cooldownPeriod time.Duration
 }
 
-func NewNotifier(db database.Database, notificationChan chan *analyzer.Alert) *Notifier {
+func NewNotifier(cfg config.Config, db database.Database, notificationChan chan *analyzer.Alert) *Notifier {
 	notif := &Notifier{
 		db:               db,
 		notificationChan: notificationChan,
@@ -32,7 +33,7 @@ func NewNotifier(db database.Database, notificationChan chan *analyzer.Alert) *N
 		cooldownPeriod:   time.Minute * 2,
 	}
 
-	notif.senders["MAIL"] = &MailSender{}
+	notif.senders["MAIL"] = &MailSender{config: cfg.Mail}
 	notif.senders["WEBHOOK"] = &WebhookSender{}
 
 	return notif

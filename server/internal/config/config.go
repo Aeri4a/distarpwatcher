@@ -22,10 +22,19 @@ type APIConfig struct {
 	Port string `yaml:"port"`
 }
 
+type MailConfig struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	From     string `yaml:"from"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
 	API      APIConfig      `yaml:"api"`
+	Mail     MailConfig     `yaml:"mail"`
 }
 
 func LoadConfig(path string) (*Config, error) {

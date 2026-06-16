@@ -43,7 +43,7 @@ func main() {
 
 	grpcSrv := collector.NewGRPCServer(cfg.Server, db, eventChan)
 	analyzerSrv := analyzer.NewAnalyzer(db, eventChan, notificationChan)
-	notifierSrv := notifier.NewNotifier(db, notificationChan)
+	notifierSrv := notifier.NewNotifier(*cfg, db, notificationChan)
 	apiSrv := api.NewAPIServer(cfg.API, db)
 
 	g.Go(func() error {
